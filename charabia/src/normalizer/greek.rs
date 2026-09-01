@@ -12,11 +12,19 @@ impl Normalizer for GreekNormalizer {
     // converting  "ς" to "σ" doesn't change the characters length,
     // so the `normalize` method is overloaded to skip the useless char_map computing.
     fn normalize<'o>(&self, mut token: Token<'o>, _options: &NormalizerOption) -> Token<'o> {
-        if let Some(index) = token.lemma.find('ς') {
-            let mut lemma = String::with_capacity(token.lemma.len());
-            lemma.push_str(&token.lemma[..index]);
-            lemma.extend(token.lemma[index..].chars().map(|c| if c == 'ς' { 'σ' } else { c }));
-            token.lemma = Cow::Owned(lemma)
+        if token.lemma.contains('ς') {
+            match token.lemma {
+                Cow::Borrowed(lemma) => token.lemma = Cow::Owned(lemma.replace('ς', "σ")),
+                Cow::Owned(mut lemma) => {
+                    let mut start = 0;
+                    while let Some(index) = lemma[start..].find('ς') {
+                        start += index;
+                        lemma.replace_range(start..start + 'ς'.len_utf8(), "σ");
+                        start += 'σ'.len_utf8();
+                    }
+                    token.lemma = Cow::Owned(lemma);
+                }
+            }
         }
 
         token
